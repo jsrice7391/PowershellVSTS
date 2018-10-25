@@ -1,0 +1,91 @@
+resources:
+- repo: self
+  clean: true
+queue:
+  name: Hosted VS2017
+#Your build pipeline references an undefined variable named ‘$newString.ModuleVersion’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+#Your build pipeline references an undefined variable named ‘$newString.ModuleVersion’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+#Your build pipeline references an undefined variable named ‘$newString.ModuleVersion’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+#Your build pipeline references an undefined variable named ‘$newString.ModuleVersion’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+#Your build pipeline references an undefined variable named ‘$env:USERNAME’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+#Your build pipeline references an undefined variable named ‘$date’. Create or edit the build pipeline for this YAML file, define the variable on the Variables tab. See https://go.microsoft.com/fwlink/?linkid=865972
+steps:
+- powershell: |
+   $manifest = Import-PowerShellDataFile .\VSTS-TestModule.psd1
+   [version]$version = $Manifest.ModuleVersion
+   # Add one to the build of the version number
+   $NewVersion = "{0}.{1}.{2}" -f $Version.Major, $Version.Minor, ($Version.Build + 1) 
+   # Update the manifest file
+   Update-ModuleManifest -Path .\VSTS-TestModule.psd1 -ModuleVersion $NewVersion
+   #Sleep Incase of update
+   #this is a comment to test with the needed changes
+   Start-Sleep -Seconds 5
+   #Find the Nuspec File
+   $MonolithFile = ".\VSTS-TestModule.nuspec"
+   #Import the New PSD file
+   $newString = Import-PowerShellDataFile .\VSTS-TestModule.psd1
+   #Create a new file and Update each time. 
+   $xmlFile = New-Object xml
+   $xmlFile.Load($MonolithFile)
+   #Set the version to the one that is in the manifest.
+   $xmlFile.package.metadata.version = $newString.ModuleVersion
+   $xmlFile.Save($MonolithFile) 
+   
+   
+   $date = Get-Date -Uformat "%D"
+   Add-Content -Path .\README.md -Value "**Version: $($newString.ModuleVersion)**"
+   Add-Content -Path .\README.md -Value "by *$($env:USERNAME) on $($date)*"
+    
+  displayName: 'PowerShell Script'
+
+- task: richardfennellBM.BM-VSTS-PesterRunner-Task.Pester-Task.Pester@8
+  displayName: 'Run Pester Test'
+  inputs:
+    scriptFolder: '$(System.DefaultWorkingDirectory)\display\*'
+
+
+- script: |
+   git config --global user.email "VssAdministrator@factoryvm-az459.(biib)"
+   git config --global user.name "VSTS Admin"
+   
+   
+   ECHO SOURCE BRANCH IS %BUILD_SOURCEBRANCH%
+   IF %BUILD_SOURCEBRANCH% == refs/heads/master (
+      ECHO Building master branch so no merge is needed.
+      EXIT
+   )
+   SET sourceBranch=origin/%BUILD_SOURCEBRANCH:refs/heads/=%
+   ECHO ADDING CHANGES FROM PIPELINE
+   git branch %sourceBranch%
+   ECHO ADDING MODIFIED FILES
+   git add --all
+   ECHO CREATING COMMIT
+   git commit -m "Changes made from Pipeline"
+   ECHO CHECKING MASTER
+   git reflog
+   git checkout -b master HEAD@{0}
+   git pull --strategy recursive -X theirs origin %BUILD_SOURCEBRANCH%
+   git pull --strategy recursive -X ours origin master
+   git add --all
+   git commit -m "Added from VSTS Pipeline"
+   git push origin master 
+  displayName: 'Command Line Script'
+
+- task: NuGetCommand@2
+  displayName: 'NuGet pack'
+  inputs:
+    command: pack
+
+    packagesToPack: 'VSTS-TestModule.nuspec'
+
+
+- task: NuGetCommand@2
+  displayName: 'NuGet push'
+  inputs:
+    command: push
+
+    packagesToPush: '*.nupkg'
+
+    publishVstsFeed: '9e046e8d-5828-4ac4-b6c2-f827cf1beca8'
+
+

@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<package>
+  <metadata>
+    <id>VSTS-TestModule</id>
+    <version>0.0.12</version>
+    <authors>Justin Rice</authors>
+    <description>Package description</description>
+    <releaseNotes>Version 0.0.12 was modified by jrice1 on </releaseNotes>
+    <copyright>Copyright 2018</copyright>
+    <tags>Module VSTS</tags>
+  </metadata>
+</package>
